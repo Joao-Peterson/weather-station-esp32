@@ -1,0 +1,4 @@
+key,type,encoding,value
+credentials,namespace,,
+serial,data,string,$serial
+pass,data,string,$pass

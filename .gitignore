@@ -1,0 +1,8 @@
+# dirs
+build/
+
+# extensions
+*.bin
+
+# individual files
+nvs.csv
