@@ -2,6 +2,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "console_task.h"
+#include "wifi.h"
 
 void app_main(void){
     // initialize flash
@@ -11,7 +12,10 @@ void app_main(void){
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
-    
+
+    // initialize wifi
+    wifi_init();
+
     // run console task
     xTaskCreate(console_task, "console_task", 4096, NULL, 0, NULL);
 }

@@ -11,6 +11,70 @@
 #include <nvs_flash.h>
 #include <mbedtls/sha256.h>
 #include "hexstring.h"
+#include <esp_wifi.h>
+#include "wifi.h"
+
+// ------------------------------------------------------------ Wifi connect cmd ------------------------------------------------
+
+// argtable struct
+static struct{
+	struct arg_str *ssid;
+	struct arg_str *pass;
+	struct arg_int *timeout;
+	struct arg_end *end;
+}cmd_wifi_join_args;
+
+// wifi_join callback
+int cmd_wifi_join(int argq, char **argv){
+	int nerrors = arg_parse(argq, argv, (void**) &cmd_wifi_join_args);
+	if (nerrors != 0) {
+        arg_print_errors(stderr, cmd_wifi_join_args.end, argv[0]);
+        return 0;
+    }
+
+	if(cmd_wifi_join_args.timeout->count == 0){										// default value for timeout
+		cmd_wifi_join_args.timeout->ival[0] = 5000;
+	}
+
+	bool res = wifi_connect_to(														// try and connect
+		(char *)cmd_wifi_join_args.ssid->sval[0],
+		(char *)cmd_wifi_join_args.pass->sval[0],
+		(size_t)cmd_wifi_join_args.timeout->ival[0]
+	);
+
+	wifi_ap_record_t ap;
+	esp_wifi_sta_get_ap_info(&ap);
+
+	if(res){																		// on success
+		esp_netif_t *netif = esp_netif_create_default_wifi_sta();
+		esp_netif_ip_info_t info;
+		esp_netif_get_ip_info(netif, &info);
+
+		printf(
+			"Connected to wifi ssid: '%s'\n"
+			"Signal strength: %d db"
+			"Assinged IP addr: '" IPSTR "'\n", 
+			
+			ap.ssid,
+			ap.rssi,
+			IP2STR(&(info.ip))
+		);
+	}
+	else{																			// on fail
+		printf("Could not connect to wifi network ssid: '%s'", ap.ssid);
+	}
+
+	return 0;
+}
+
+// esp command struct 
+static const esp_console_cmd_t cmd_wifi_join_cmd = {
+    .command = "wifiConnect",
+    .help = "Join a wifi network",
+    .hint = NULL,
+    .func = &cmd_wifi_join,
+	.argtable = &cmd_wifi_join_args
+};
 
 // ------------------------------------------------------------ Restart cmd --------------------------------------------------------
 
@@ -157,11 +221,18 @@ static const esp_console_cmd_t cmd_login_cmd = {
 
 // register commands
 void cmds_register(void){
+	// wifi connect
+	cmd_wifi_join_args.ssid    	= arg_str1(NULL, NULL, "<ssid>",    NULL);
+	cmd_wifi_join_args.pass    	= arg_str0(NULL, NULL, "<pass>",    NULL);
+	cmd_wifi_join_args.timeout 	= arg_int0(NULL, NULL, "<timeout_ms>", NULL);
+	cmd_wifi_join_args.end 		= arg_end(10);
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_wifi_join_cmd));
+	
 	// restart
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_restart_cmd));
 
 	// login
-	cmd_login_args.pass = arg_str1(NULL, NULL, "<password>", NULL);
-	cmd_login_args.end = arg_end(10);
+	cmd_login_args.pass 		= arg_str1(NULL, NULL, "<password>", NULL);
+	cmd_login_args.end 			= arg_end(10);
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_login_cmd));
 }
