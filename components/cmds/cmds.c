@@ -1,5 +1,6 @@
 #include "cmds.h"
 #include <string.h>
+#include <stdbool.h>
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_system.h>
@@ -16,7 +17,11 @@
 #include "cred.h"
 #include "strswitch.h"
 
-// ------------------------------------------------------------ Wifi commands ---------------------------------------------------
+// ------------------------------------------------------------ Globals ---------------------------------------------------------
+
+bool logged = false;
+
+// ------------------------------------------------------------ Wifi cmd --------------------------------------------------------
 
 // arguments wifi command
 static struct{
@@ -96,6 +101,11 @@ int cmd_wifi_info(int argq, char **argv){
 
 // main wifi commands callback
 int cmd_wifi(int argq, char **argv){
+	if(!logged){
+		printf("Please login first before executing this priviledged command\n");
+		return 0;
+	}
+	
 	char *subcommand = argv[1];
 
 	if(subcommand == NULL) subcommand = "info";										// default subcommand
@@ -133,6 +143,11 @@ static const esp_console_cmd_t cmd_wifi_cmd = {
 
 // restart callback func
 int cmd_restart(int argq, char **argv){
+	if(!logged){
+		printf("Please login first before executing this priviledged command\n");
+		return 0;
+	}
+
     ESP_LOGI(__FILE__, "Restarting...");
     esp_restart();
 	return 0;
@@ -185,6 +200,11 @@ void console_print_info(void){
 
 // login callback
 int cmd_login(int argq, char **argv){
+	if(logged){
+		printf("You are already logged in\n");
+		return 0;
+	}
+
 	int nerrors = arg_parse(argq, argv, (void**) &cmd_login_args);
 	if (nerrors != 0) {
         arg_print_errors(stderr, cmd_login_args.end, argv[0]);
@@ -198,6 +218,7 @@ int cmd_login(int argq, char **argv){
 
 	if(res){																		// password correct
 		printf("You are logged in!\n");
+		logged = true;
 		// console_print_info();
 	}
 	else{
@@ -218,10 +239,39 @@ static const esp_console_cmd_t cmd_login_cmd = {
 	.argtable = &cmd_login_args
 };
 
+// ------------------------------------------------------------ Exit cmd -----------------------------------------------------------
+
+// exit command callback
+int cmd_exit(int argq, char **argv){
+	if(!logged){
+		printf("You are not logged in, no need to exit\n");
+	}
+	else{
+		printf("You exited the session\n");
+		logged = false;
+	}
+
+	return 0;
+}
+
+// exit command struct 
+static const esp_console_cmd_t cmd_exit_cmd = {
+    .command = "exit",
+    .help = "Exit, sign out of login screen",
+    .hint = NULL,
+    .func = &cmd_exit,
+	.argtable = NULL
+};
+
 // ------------------------------------------------------------ Info cmd -----------------------------------------------------------
 
 // info command callback
 int cmd_info(int argq, char **argv){
+	if(!logged){
+		printf("Please login first before executing this priviledged command\n");
+		return 0;
+	}
+
 	console_print_info();
 	return 0;
 }
@@ -257,4 +307,7 @@ void cmds_register(void){
 	cmd_login_args.pass 			= arg_str1(NULL, NULL, "<password>", NULL);
 	cmd_login_args.end 				= arg_end(10);
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_login_cmd));
+
+	// exit
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_exit_cmd));
 }
