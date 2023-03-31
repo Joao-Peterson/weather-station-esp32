@@ -7,6 +7,11 @@
 #include <string.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
+#include <esp_event_base.h>
+
+// ------------------------------------------------------------ Defines -----------------------------------------------------------
+
+#define add 
 
 // ------------------------------------------------------------ Event group -------------------------------------------------------
 
@@ -17,6 +22,25 @@ extern EventGroupHandle_t wifi_event_group;
 typedef enum{
 	wifi_eg_connected =			0x01,
 }wifi_eg_t;
+
+// ------------------------------------------------------------ Types -------------------------------------------------------------
+
+// struct for wifi connecttion info
+typedef struct{
+	bool connected;
+	char ssid[33];
+	int8_t rssi;
+	char hostname[33];
+	char mac[18];
+	char ip[16];
+}wifi_info_t;
+
+// return value from wiif_connect_to() call
+typedef enum{
+	wifi_connect_status_connected = 0,
+	wifi_connect_status_timeout,
+	wifi_connect_status_error
+}wifi_connect_status_t;
 
 // ------------------------------------------------------------ Functions ----------------------------------------------------------
 
@@ -29,14 +53,23 @@ void wifi_init();
  * @param ssid: the network ap name, 32 chars max
  * @param pass: network password, 64 chars max
  * @param timeoutMs: time out in milliseconds
- * @return true if successful or false otherwise
+ * @return status, either connected or timeout
  */
-bool wifi_connect_to(char *ssid, char *pass, size_t timeoutMs);
+wifi_connect_status_t wifi_connect_to(char *ssid, char *pass, size_t timeoutMs);
 
 // check if already connected to a network
 bool wifi_connected();
 
 // disconnect from cuurrently connected network
 bool wifi_disconnect();
+
+// get wifi info
+wifi_info_t wifi_get_info();
+
+// print wifi info
+void wifi_print_info();
+
+// get ip/wifi event string
+char *wifi_event_to_str(esp_event_base_t event_base, int32_t event_id);
 
 #endif

@@ -1,11 +1,9 @@
-menu "Console extra options"
+menu "Weather station config"
 
-    config STORE_HISTORY
-        bool "Store command history in flash"
-        default y
+    config HOSTNAME
+        string "Hostname for the esp. Use less then 25 chars before the %s. The %s is where the serial number will be inserted (maybe truncated)"
+        default "espWS %s"
         help
-            Linenoise line editing library provides functions to save and load
-            command history. If this option is enabled, initalizes a FAT filesystem
-            and uses it to store command history.
+            Hostname for the esp. The %s is where the serial number will be inserted (maybe truncated)
 
 endmenu

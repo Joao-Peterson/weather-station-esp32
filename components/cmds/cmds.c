@@ -10,70 +10,123 @@
 #include <nvs.h>
 #include <nvs_flash.h>
 #include <mbedtls/sha256.h>
-#include "hexstring.h"
 #include <esp_wifi.h>
+#include "hexstring.h"
 #include "wifi.h"
+#include "cred.h"
+#include "strswitch.h"
 
-// ------------------------------------------------------------ Wifi connect cmd ------------------------------------------------
+// ------------------------------------------------------------ Wifi commands ---------------------------------------------------
 
-// argtable struct
+// arguments wifi command
 static struct{
+	struct arg_str *subcommand;
 	struct arg_str *ssid;
 	struct arg_str *pass;
 	struct arg_int *timeout;
 	struct arg_end *end;
-}cmd_wifi_join_args;
+}cmd_wifi_args;
 
-// wifi_join callback
-int cmd_wifi_join(int argq, char **argv){
-	int nerrors = arg_parse(argq, argv, (void**) &cmd_wifi_join_args);
+// wifi disconnect commands callback
+int cmd_wifi_disconnect(int argq, char **argv){
+	if(wifi_disconnect())
+		printf("Disconnected from wifi ap\n");
+	else
+		printf("Already not connected to any wifi ap\n");
+
+	return 0;
+}
+
+// wifi connect commands callback
+int cmd_wifi_connect(int argq, char **argv){
+	int nerrors = arg_parse(argq, argv, (void**) &cmd_wifi_args);
 	if (nerrors != 0) {
-        arg_print_errors(stderr, cmd_wifi_join_args.end, argv[0]);
+        arg_print_errors(stderr, cmd_wifi_args.end, argv[0]);
         return 0;
     }
 
-	if(cmd_wifi_join_args.timeout->count == 0){										// default value for timeout
-		cmd_wifi_join_args.timeout->ival[0] = 5000;
+	if(cmd_wifi_args.ssid->count == 0){											// if no ssid
+		printf(
+			"When using 'wifi connect' please pass an ssid and optinally an password and timeout\n"
+		);
+
+		return 0;
 	}
 
-	bool res = wifi_connect_to(														// try and connect
-		(char *)cmd_wifi_join_args.ssid->sval[0],
-		(char *)cmd_wifi_join_args.pass->sval[0],
-		(size_t)cmd_wifi_join_args.timeout->ival[0]
+	if(cmd_wifi_args.timeout->count == 0){											// default value for timeout
+		cmd_wifi_args.timeout->ival[0] = 5000;
+	}
+
+	wifi_connect_status_t res = wifi_connect_to(									// try and connect
+		(char *)cmd_wifi_args.ssid->sval[0],
+		(char *)cmd_wifi_args.pass->sval[0],
+		(size_t)cmd_wifi_args.timeout->ival[0]
 	);
 
-	wifi_ap_record_t ap;
-	esp_wifi_sta_get_ap_info(&ap);
+	switch(res){
+		case wifi_connect_status_connected:											// if connect ok
+			wifi_print_info();
+		break;
 
-	if(res){																		// on success
-		esp_netif_t *netif = esp_netif_create_default_wifi_sta();
-		esp_netif_ip_info_t info;
-		esp_netif_get_ip_info(netif, &info);
-
-		printf(
-			"Connected to wifi ssid: '%s'\n"
-			"Signal strength: %d db"
-			"Assinged IP addr: '" IPSTR "'\n", 
-			
-			ap.ssid,
-			ap.rssi,
-			IP2STR(&(info.ip))
-		);
-	}
-	else{																			// on fail
-		printf("Could not connect to wifi network ssid: '%s'", ap.ssid);
+		case wifi_connect_status_timeout:											// timeout
+			printf(
+				"Could not connect to wifi network ssid: '%s' timeout reached [%d ms]\n", 
+				(char *)cmd_wifi_args.ssid->sval[0],
+				(int)cmd_wifi_args.timeout->ival[0]
+			);
+		break;
+		
+		default:
+		case wifi_connect_status_error:												// on error
+			printf(
+				"Error connecting to wifi network ssid: '%s'\n", 
+				(char *)cmd_wifi_args.ssid->sval[0]
+			);
+		break;
 	}
 
 	return 0;
 }
 
-// esp command struct 
-static const esp_console_cmd_t cmd_wifi_join_cmd = {
-    .command = "wifiConnect",
-    .help = "Join a wifi network",
+// wifi info command callback
+int cmd_wifi_info(int argq, char **argv){
+	wifi_print_info();
+	return 0;
+}
+
+// main wifi commands callback
+int cmd_wifi(int argq, char **argv){
+	char *subcommand = argv[1];
+
+	if(subcommand == NULL) subcommand = "info";										// default subcommand
+
+	sswitch(subcommand){															// dispatch subcommand
+		scase("info")
+			return cmd_wifi_info(argq, argv);
+		sbreak
+
+		scase("connect")
+			return cmd_wifi_connect(argq, argv);
+		sbreak
+
+		scase("disconnect")
+			return cmd_wifi_disconnect(argq, argv);
+		sbreak
+
+		sdefault																	// invalid subcommand
+			printf("subcommand '%s' doesn't exist\n", subcommand);
+			return 0;
+		sbreak
+	}
+}
+
+// wifi command struct
+static const esp_console_cmd_t cmd_wifi_cmd = {
+    .command = "wifi",
+    .help = "Wifi commands",
     .hint = NULL,
-    .func = &cmd_wifi_join,
-	.argtable = &cmd_wifi_join_args
+    .func = &cmd_wifi,
+	.argtable = &cmd_wifi_args
 };
 
 // ------------------------------------------------------------ Restart cmd --------------------------------------------------------
@@ -106,19 +159,11 @@ void console_print_info(void){
     // get info
     const esp_app_desc_t *info = esp_app_get_description();
 
-    nvs_handle_t nvs;
-    ESP_ERROR_CHECK(nvs_open("credentials", NVS_READONLY, &nvs));
-
-    // get serial
-    char serial[37] = {0};
-    size_t serialLen; 
-    ESP_ERROR_CHECK(nvs_get_str(nvs, "serial", serial, &serialLen));
-
-    nvs_close(nvs);
+	credentials_t *cred = credentials_get_nvs();									// get credentials
 
 	char *sha256 = bin2hex((uint8_t*)info->app_elf_sha256, 32, NULL, false);
 
-    printf("\n"
+    printf(
         "Serial: %s\n"
         "Firmware name: %s.\n"
         "Firmware version: %s.\n"
@@ -126,7 +171,7 @@ void console_print_info(void){
         "ESP-IDF version: %s\n"
         "App SHA256: %s\n",
 
-        serial,
+        cred->serial,
         info->project_name,
         info->version,
         info->date, info->time,
@@ -135,43 +180,7 @@ void console_print_info(void){
     );
 
 	free(sha256);
-}
-
-// store credentials read from memory
-typedef struct{
-	char *serial;
-	char *pass;
-}credentials_t;
-
-// dealloc credentials struct
-void credentials_free(credentials_t *cred){
-	free(cred->pass);
-	free(cred->serial);
-	free(cred);
-}
-
-// get password from nvs
-credentials_t *nvs_get_credentials(void){
-    nvs_handle_t nvs;
-    ESP_ERROR_CHECK(nvs_open("credentials", NVS_READONLY, &nvs));
-
-	credentials_t *cred = calloc(sizeof(credentials_t), 1);
-
-	// get serial
-	char *serial = calloc(sizeof(char), 37);
-	size_t serialLen = 37;
-	ESP_ERROR_CHECK(nvs_get_str(nvs, "serial", serial, &serialLen));
-	cred->serial = serial;
-
-	// get pass
-	char *pass = calloc(sizeof(char), 65);
-	size_t passLen = 65;
-	ESP_ERROR_CHECK(nvs_get_str(nvs, "pass", pass, &passLen));
-	cred->pass = pass;
-
-    nvs_close(nvs);
-
-	return cred;
+	credentials_free(cred);
 }
 
 // login callback
@@ -182,28 +191,20 @@ int cmd_login(int argq, char **argv){
         return 0;
     }
 
-	credentials_t *cred = nvs_get_credentials();									// get credential
+	credentials_t *cred = credentials_get_nvs();									// get credentials
 
-	const char *input = cmd_login_args.pass->sval[0];
-	unsigned char hashBin[33] = {0};
-	char *hash;
+	char *input = (char*)cmd_login_args.pass->sval[0];
+	bool res = credentials_check_pass(input);
 
-	char inputSalted[64+36+1] = {0};												// input + salt (serial)
-	strncat(inputSalted, input, 64+36);
-	strncat(inputSalted, cred->serial, 64+36);
-	mbedtls_sha256((const unsigned char *)inputSalted, strlen(inputSalted), hashBin, 0);
-	hash = bin2hex(hashBin, 32, NULL, false);										// to hexstring
-
-	if(!strcmp(cred->pass, hash)){													// compare hashes
+	if(res){																		// password correct
 		printf("You are logged in!\n");
-		console_print_info();
+		// console_print_info();
 	}
 	else{
 		printf("Given password: '%s' is invalid\n", input);
 	}
 
 	credentials_free(cred);
-	free(hash);
 
 	return 0;
 }
@@ -217,22 +218,43 @@ static const esp_console_cmd_t cmd_login_cmd = {
 	.argtable = &cmd_login_args
 };
 
+// ------------------------------------------------------------ Info cmd -----------------------------------------------------------
+
+// info command callback
+int cmd_info(int argq, char **argv){
+	console_print_info();
+	return 0;
+}
+
+// info command struct 
+static const esp_console_cmd_t cmd_info_cmd = {
+    .command = "info",
+    .help = "Show system data",
+    .hint = NULL,
+    .func = &cmd_info,
+	.argtable = NULL
+};
+
 // ------------------------------------------------------------ Register all commands ----------------------------------------------
 
 // register commands
 void cmds_register(void){
-	// wifi connect
-	cmd_wifi_join_args.ssid    	= arg_str1(NULL, NULL, "<ssid>",    NULL);
-	cmd_wifi_join_args.pass    	= arg_str0(NULL, NULL, "<pass>",    NULL);
-	cmd_wifi_join_args.timeout 	= arg_int0(NULL, NULL, "<timeout_ms>", NULL);
-	cmd_wifi_join_args.end 		= arg_end(10);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_wifi_join_cmd));
+	// wifi command
+	cmd_wifi_args.subcommand    	= arg_str1(NULL, NULL, "<subcommand>", 	"wifi subcommands. Can be: info, disconnect, connect <ssid> [password] [timeout_ms]");
+	cmd_wifi_args.ssid    			= arg_str0(NULL, NULL, "<ssid>",    	"wifi ssid to connect to");
+	cmd_wifi_args.pass    			= arg_str0(NULL, NULL, "<pass>",    	"wifi passwrod to connect to");
+	cmd_wifi_args.timeout   		= arg_int0(NULL, NULL, "<timeout_ms>",  "timeout to wait for a connection");
+	cmd_wifi_args.end 				= arg_end(10);
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_wifi_cmd));
 	
 	// restart
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_restart_cmd));
 
+	// restartinfo
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_info_cmd));
+
 	// login
-	cmd_login_args.pass 		= arg_str1(NULL, NULL, "<password>", NULL);
-	cmd_login_args.end 			= arg_end(10);
+	cmd_login_args.pass 			= arg_str1(NULL, NULL, "<password>", NULL);
+	cmd_login_args.end 				= arg_end(10);
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_login_cmd));
 }

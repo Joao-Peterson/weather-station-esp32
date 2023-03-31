@@ -24,7 +24,7 @@ menuconfig :
 
 # makes the nvs partition image and flashes it
 nvs : nvs/nvs.bin
-# reset esp before and after, writes at address 0x9000, #!change this if another parition table is used
+# reset esp before and after, writes at address 0x9000, #!change this if another partition table is used
 	esptool.py --before default_reset --after hard_reset write_flash --flash_size detect 0x9000 $<
 
 # read nvs from chip to a bin file, for cehcking purposes

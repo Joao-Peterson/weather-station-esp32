@@ -1,0 +1,24 @@
+{
+	"files.associations": {
+		"*.json.liquid": "json",
+		"*.yaml.liquid": "yaml",
+		"*.md.liquid": "markdown",
+		"*.js.liquid": "liquid-javascript",
+		"*.css.liquid": "liquid-css",
+		"*.scss.liquid": "liquid-scss",
+		"*.h": "c",
+		"*.c": "c",
+		".clangd": "yaml",
+		"*.m": "octave",
+		"*.json": "jsonc",
+		"bitset": "c",
+		"string": "c",
+		"vector": "c",
+		"memory": "c",
+		"optional": "c",
+		"string_view": "c",
+		"system_error": "c",
+		"typeindex": "c",
+		"variant": "c"
+	}
+}
