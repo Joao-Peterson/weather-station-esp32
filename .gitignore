@@ -1,5 +1,6 @@
 # dirs
 build/
+.cache/
 
 # extensions
 *.bin

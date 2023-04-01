@@ -14,6 +14,10 @@ build :
 all : nvs
 	idf.py build flash monitor
 
+# refresh cmake components and includes
+refresh :
+	idf.py reconfigure
+
 # open up monitor
 monitor :
 	idf.py monitor

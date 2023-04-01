@@ -289,6 +289,8 @@ static const esp_console_cmd_t cmd_info_cmd = {
 
 // register commands
 void cmds_register(void){
+	logged = false;
+	
 	// wifi command
 	cmd_wifi_args.subcommand    	= arg_str1(NULL, NULL, "<subcommand>", 	"wifi subcommands. Can be: info, disconnect, connect <ssid> [password] [timeout_ms]");
 	cmd_wifi_args.ssid    			= arg_str0(NULL, NULL, "<ssid>",    	"wifi ssid to connect to");
