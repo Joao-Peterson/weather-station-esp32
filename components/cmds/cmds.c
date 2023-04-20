@@ -38,6 +38,11 @@ int cmd_var(int argq, char** argv){
 		return 0;
 	}
 
+	if(argq < 2){																	// on empty command, list all vars
+		varsPrint();
+		return 0;
+	}
+
 	int nerrors = arg_parse(argq, argv, (void**) &cmd_var_args);					// parse args
 	if (nerrors != 0) {
         arg_print_errors(stderr, cmd_var_args.end, argv[0]);
@@ -127,11 +132,15 @@ int cmd_data(int argq, char **argv){
 			"HG humidity        : % #.5g %%\n"
 			"HG temperature     : % #.5g C°\n"
 			"Solar incidency    : % #.5g W/m^2\n"
-			"Solar voltage      : % #.5g mV\n",
+			"Solar voltage      : % #.5g mV\n"
+			"LM35 temperature   : % #.5g C°\n"
+			"LM35 voltage       : % #.5g mV\n",
 			sensor_data.hg_humidity,
 			sensor_data.hg_temp,
 			sensor_data.solar_incidency,
-			sensor_data.solar_voltage
+			sensor_data.solar_voltage,
+			sensor_data.temp_temperature,
+			sensor_data.temp_voltage
 		);
 	
 		fflush(stdin);
@@ -438,7 +447,7 @@ void cmds_register(void){
 	logged = false;
 	
 	// var cmd
-	cmd_var_args.var				= arg_str1(NULL, NULL, "<var name>", "The variable name to inspect");
+	cmd_var_args.var				= arg_str0(NULL, NULL, "[var name]", "The variable name to inspect");
 	cmd_var_args.end				= arg_end(10);
 	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_var_cmd));
 

@@ -21,8 +21,10 @@ sensor_data_t sensor_data;
 // vars
 var_t vars[] = {
 	// solar incidency corrections
-	{.name = "solar_incidency_coeff_a", .hash = ${solar_incidency_coeff_a}, .type = var_float, .value.asFloat = CONFIG_SOLAR_CELL_ADC_INCIDENCY_A / 1000000.0},
-	{.name = "solar_incidency_coeff_b", .hash = ${solar_incidency_coeff_b}, .type = var_float, .value.asFloat = CONFIG_SOLAR_CELL_ADC_INCIDENCY_B / 1000000.0},
+	{.name = "solar_a", .hash = ${solar_a}, .type = var_float, .value.asFloat = CONFIG_SOLAR_CELL_ADC_INCIDENCY_A 	/ 1000000.0},
+	{.name = "solar_b", .hash = ${solar_b}, .type = var_float, .value.asFloat = CONFIG_SOLAR_CELL_ADC_INCIDENCY_B 	/ 1000000.0},
+	{.name = "temp_a", 	.hash = ${temp_a}, 	.type = var_float, .value.asFloat = CONFIG_TEMP_CORR_A 					/ 1000000.0},
+	{.name = "temp_b", 	.hash = ${temp_b}, 	.type = var_float, .value.asFloat = CONFIG_TEMP_CORR_B 					/ 1000000.0},
 };
 
 // get
@@ -88,5 +90,17 @@ void varPrint(const var_t *var){
 		case var_bool:
 			printf("var '%s' (%s): %s\n", var->name, "bool", var->value.asBool ? "true" : "false");
 		break;
+	}
+}
+
+// print vars
+void varsPrint(void){
+	int size = sizeof(vars)/sizeof(var_t);
+
+	printf("Available vars: \n");
+
+	for(int i = 0; i < size; i++){
+		printf("\t");
+		varPrint(&(vars[i]));
 	}
 }

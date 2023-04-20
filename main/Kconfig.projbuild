@@ -13,13 +13,6 @@ config GPIO_HALL_SENSOR
     help
         44E 402 Digitial hall sensor input.
 
-config GPIO_TEMPERATURE
-    int "LM35 analog input"
-    range 1 39
-    default 36
-    help
-        LM35 Centigrede sensor input.
-
 config GPIO_HUMIDITY
     int "AM2302 digital humidity and temperature sensor input"
     range 1 39
@@ -27,12 +20,26 @@ config GPIO_HUMIDITY
     help
         AM2302 digital humidity and temperature sensor input.
 
+config ANALOG_SENSORS_ADC_UNIT
+	int "Analog sensor ADC unit index"
+	default 0
+	range 0 1
+	help 
+		ADC unit to be used on the analog sensors. From the enum: ADC_UNIT_1 = 0, ADC_UNIT_2 = 1
+
+config TEMP_SENSOR_ADC_CHANNEL
+    int "ADC channel for the temperature sensor (LM35)"
+    default 0
+    range 0 9
+    help 
+        ADC channel. From the enum: ADC_CHANNEL_0 = 0, ADC_CHANNEL_1 = 1, and so on ...
+
 config SOLAR_CELL_ADC_CHANNEL
-    int "ADC channel for the unit"
+    int "ADC channel for the solar cell incidency sensor"
     default 7
     range 0 9
     help 
-        ADC unit. From the enum: ADC_CHANNEL_0 = 0, ADC_CHANNEL_1 = 1, and so on ...
+        ADC channel. From the enum: ADC_CHANNEL_0 = 0, ADC_CHANNEL_1 = 1, and so on ...
 
 config RAIN_GAUGE_RATIO_COUNTS_PER_MM
     int "Rain gauge ratio of counts to mm of precipitation (x1000)"

@@ -10,10 +10,10 @@ djb2_hash() {
         char=${str:i:1}
 		c=$(printf "%d" "'$char'")
         hash=$(( ($hash << 5) + $hash + $c ))
-		hash=$(($hash & 0x7FFFFFFF))												# necessary due to 32 bits overflows 
+		hash=$(($hash & 0xFFFFFFFF))												# necessary due to 32 bits overflows 
     done
 
-    printf "%d" "$hash"
+    printf "%lu" "$hash"
 }
 
 matches=$(grep -oE '\${[^}]+}' $1)

@@ -22,6 +22,7 @@
 #include "vars.h"
 #include "hg_sensor.h"
 #include "solar_sensor.h"
+#include "temp_sensor.h"
 #include "rain_gauge.h"
 
 // ------------------------------------------------------------ Defines ------------------------------------------------------------
@@ -70,10 +71,22 @@ void sensors_task(void *data){
     // sensors init
     // rain_gauge_t rain_data;
 
-    hg_sensor_t hg_sensor           = hg_init(CONFIG_GPIO_HUMIDITY);
-    solar_sensor_t solar_sensor     = solar_sensor_init(CONFIG_SOLAR_CELL_ADC_CHANNEL);
-    // gpio_config_t hall_gpio         = { .intr_type = GPIO_INTR_ANYEDGE, .mode = GPIO_MODE_INPUT, .pin_bit_mask = (1ULL<<CONFIG_GPIO_HALL_SENSOR) };
+    int unit_id = CONFIG_ANALOG_SENSORS_ADC_UNIT;
 
+    // init adc1 unit 
+	adc_oneshot_unit_init_cfg_t unit_cfg = {
+		.unit_id = unit_id,
+		.ulp_mode = ADC_ULP_MODE_DISABLE
+	};
+	
+    adc_oneshot_unit_handle_t adc_unit0_handle;
+	ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_cfg, &adc_unit0_handle));
+
+    hg_sensor_t hg_sensor           = hg_init(CONFIG_GPIO_HUMIDITY);
+    solar_sensor_t solar_sensor     = solar_sensor_init(CONFIG_SOLAR_CELL_ADC_CHANNEL, unit_id, adc_unit0_handle);
+    temp_sensor_t temp_sensor       = temp_sensor_init(CONFIG_TEMP_SENSOR_ADC_CHANNEL, unit_id, adc_unit0_handle);
+
+    // gpio_config_t hall_gpio         = { .intr_type = GPIO_INTR_ANYEDGE, .mode = GPIO_MODE_INPUT, .pin_bit_mask = (1ULL<<CONFIG_GPIO_HALL_SENSOR) };
     // gpio_config(&adc0_gpio);
     // gpio_config(&hall_gpio);
     // gpio_config(&solar_incidence);
@@ -133,6 +146,19 @@ void sensors_task(void *data){
         else{
             sensor_data.solar_incidency = solar_sensor.incidency;
             sensor_data.solar_voltage = solar_sensor.voltage;
+        }
+
+        /* Temperature */
+        temp_err_t temp_code = temp_sensor_read(&temp_sensor);
+
+        if(temp_code){
+            ESP_LOGE(__FILE__, "%s", temp_err_to_str(temp_code));
+            sensor_data.temp_temperature = NAN;
+            sensor_data.temp_voltage = NAN;
+        }
+        else{
+            sensor_data.temp_temperature = temp_sensor.temperature;
+            sensor_data.temp_voltage = temp_sensor.voltage;
         }
 
         /* Rain gauge */

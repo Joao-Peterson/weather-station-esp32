@@ -22,7 +22,7 @@ typedef struct{
 /**
  * @brief init solar sensor, adc and all
  */
-solar_sensor_t solar_sensor_init(int channel);
+solar_sensor_t solar_sensor_init(int channel, int unit_id, adc_oneshot_unit_handle_t unit);
 
 /**
  * @brief read data from sensor, voltage and incidency

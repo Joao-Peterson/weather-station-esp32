@@ -1,32 +1,32 @@
-menu "Solar incidency sensor"
+menu "Temperature sensor (LM35)"
 
-config SOLAR_CELL_ADC_BITWIDTH
+config TEMP_ADC_BITWIDTH
 	int "ADC unit bitwidth (resolution)"
 	default 12
 	range 0 13
 	help 
 		ADC bitwidth. From the enum: ADC_BITWIDTH_DEFAULT = 0, ADC_BITWIDTH_9  = 9, ADC_BITWIDTH_10 = 10, ADC_BITWIDTH_11 = 11, ADC_BITWIDTH_12 = 12, ADC_BITWIDTH_13 = 13. BEWARE OF MAX THE BITWIDTH FOR YOUR ESPMODEL! 
 
-config SOLAR_CELL_ADC_ATTEN
+config TEMP_ADC_ATTEN
 	int "ADC unit attenuation"
 	default 3
 	range 0 3
 	help 
 		ADC attenuation. From the enum: ADC_ATTEN_DB_0 = 0, ADC_ATTEN_DB_2_5 = 1, ADC_ATTEN_DB_6 = 2, ADC_ATTEN_DB_11 = 3
 
-config SOLAR_CELL_ADC_INCIDENCY_A
-	int "Solar incidency angular coefficient"
-	default 434782
+config TEMP_CORR_A
+	int "Temperature correction angular coefficient"
+	default 100000000
 	help 
-		Angular coefficient for the linear computation of solar incidency from read voltage. Given as 10^6.
+		Angular coefficient for the linear correction of the read temperature. Given as 10^6.
 		
-config SOLAR_CELL_ADC_INCIDENCY_B
-	int "Solar incidency linear coefficient"
+config TEMP_CORR_B
+	int "Temperature correction linear coefficient"
 	default 0
 	help 
-		Linear coefficient for the linear computation of solar incidency from read voltage. Given as 10^6.
+		Linear coefficient for the linear correction of the read temperature. Given as 10^6.
 
-config SOLAR_CELL_ADC_USE_CALI
+config TEMP_ADC_USE_CALI
 	bool "Use ADC calibration driver"
 	default y
 	help 

@@ -1,19 +1,19 @@
-#include "solar_sensor.h"
+#include "temp_sensor.h"
 #include "enumstr.h"
 #include "sdkconfig.h"
 #include <esp_err.h>
 #include "vars.h"
 
 // errors
-const enum_str_t solar_err_str[] = {
-	ENUMSTR_ENTRY(solar_err_adc_read_error),
-	ENUMSTR_ENTRY(solar_err_adc_cali_driver_error),
-	ENUMSTR_ENTRY(solar_err_ok)
+const enum_str_t temp_err_str[] = {
+	ENUMSTR_ENTRY(temp_err_adc_read_error),
+	ENUMSTR_ENTRY(temp_err_adc_cali_driver_error),
+	ENUMSTR_ENTRY(temp_err_ok)
 };
 
 // get string
-const char *solar_err_to_str(solar_err_t code){
-	return enumstr_get(solar_err_str, code);
+const char *temp_err_to_str(temp_err_t code){
+	return enumstr_get(temp_err_str, code);
 }
 
 /**
@@ -33,8 +33,8 @@ static int adc2mv(int raw, adc_bitwidth_t bitwidth, adc_atten_t atten){
 }
 
 // init solar sensor 
-solar_sensor_t solar_sensor_init(int channel, int unit_id, adc_oneshot_unit_handle_t unit){
-	solar_sensor_t s = {0};
+temp_sensor_t temp_sensor_init(int channel, int unit_id, adc_oneshot_unit_handle_t unit){
+	temp_sensor_t s = {0};
 	s.channel = channel;
 	s.unit = unit;
 	
@@ -47,37 +47,37 @@ solar_sensor_t solar_sensor_init(int channel, int unit_id, adc_oneshot_unit_hand
 	ESP_ERROR_CHECK(adc_oneshot_config_channel(s.unit, s.channel, &cfg));
 
 	// channel calibration
-		#if CONFIG_SOLAR_CELL_ADC_USE_CALI
+	#if CONFIG_TEMP_ADC_USE_CALI
 
 	adc_cali_line_fitting_config_t cali_cfg = {
-		.atten = CONFIG_SOLAR_CELL_ADC_ATTEN,
-		.bitwidth = CONFIG_SOLAR_CELL_ADC_BITWIDTH,
+		.atten = CONFIG_TEMP_ADC_ATTEN,
+		.bitwidth = CONFIG_TEMP_ADC_BITWIDTH,
 		.unit_id = unit_id
 	};
 
 	ESP_ERROR_CHECK(adc_cali_create_scheme_line_fitting(&cali_cfg, &(s.cali)));
-	#endif // CONFIG_SOLAR_CELL_ADC_USE_CALI
+	#endif // CONFIG_TEMP_ADC_USE_CALI
 
 	return s;
 }
 
 // read voltage for the sensor
-solar_err_t solar_sensor_read(solar_sensor_t *sensor){
+temp_err_t temp_sensor_read(temp_sensor_t *sensor){
 
 	if(adc_oneshot_read(sensor->unit, sensor->channel, &(sensor->voltage))) 		// read raw
-		return solar_err_adc_read_error;
+		return temp_err_adc_read_error;
 	
-	if(CONFIG_SOLAR_CELL_ADC_USE_CALI && (sensor->cali != NULL)){					// get voltage with the cali driver
+	if(CONFIG_TEMP_ADC_USE_CALI && (sensor->cali != NULL)){							// get voltage with the cali driver
 		if(adc_cali_raw_to_voltage(sensor->cali, sensor->voltage, &(sensor->voltage)))
-			return solar_err_adc_cali_driver_error;
+			return temp_err_adc_cali_driver_error;
 	}
 	else																			// get voltage by linear proportion
-		sensor->voltage = adc2mv(sensor->voltage, CONFIG_SOLAR_CELL_ADC_BITWIDTH, CONFIG_SOLAR_CELL_ADC_ATTEN);		
+		sensor->voltage = adc2mv(sensor->voltage, CONFIG_TEMP_ADC_BITWIDTH, CONFIG_TEMP_ADC_ATTEN);		
 
-	const var_t *a = varGet("solar_a");
-	const var_t *b = varGet("solar_b");
-	sensor->incidency = 															// calculate solar incidency. a * x + b
+	const var_t *a = varGet("temp_a");
+	const var_t *b = varGet("temp_b");
+	sensor->temperature = 															// calculate solar incidency. a * x + b
 		a->value.asFloat * sensor->voltage + b->value.asFloat;
 
-	return solar_err_ok;
+	return temp_err_ok;
 }

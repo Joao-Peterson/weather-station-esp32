@@ -12,6 +12,8 @@ typedef struct{
     float hg_humidity;
     float solar_incidency;
     float solar_voltage;
+    float temp_temperature;
+    float temp_voltage;
 }sensor_data_t;
 extern sensor_data_t sensor_data;
 
@@ -57,5 +59,10 @@ bool varSet(var_t *var, char *value);
  * @brief print var value
  */
 void varPrint(const var_t *var);
+
+/**
+ * @brief list all vars
+ */
+void varsPrint(void);
 
 #endif
