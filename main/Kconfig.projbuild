@@ -1,43 +1,43 @@
 menu "Weather station config"
 
-    config HOSTNAME
-        string "Hostname for the esp. Use less then 25 chars before the %s. The %s is where the serial number will be inserted (maybe truncated)"
-        default "espWS %s"
-        help
-            Hostname for the esp. The %s is where the serial number will be inserted (maybe truncated)
+config HOSTNAME
+    string "Hostname for the esp. Use less then 25 chars before the %s. The %s is where the serial number will be inserted (maybe truncated)"
+    default "espWS %s"
+    help
+        Hostname for the esp. The %s is where the serial number will be inserted (maybe truncated)
 
-    config GPIO_HALL_SENSOR
-        int "Hall sensor digital input"
-        range 1 39
-        default 23
-        help
-            44E 402 Digitial hall sensor input.
+config GPIO_HALL_SENSOR
+    int "Hall sensor digital input"
+    range 1 39
+    default 23
+    help
+        44E 402 Digitial hall sensor input.
 
-    config GPIO_TEMPERATURE
-        int "LM35 analog input"
-        range 1 39
-        default 36
-        help
-            LM35 Centigrede sensor input.
+config GPIO_TEMPERATURE
+    int "LM35 analog input"
+    range 1 39
+    default 36
+    help
+        LM35 Centigrede sensor input.
 
-    config GPIO_HUMIDITY
-        int "AM2302 digital humidity and temperature sensor input"
-        range 1 39
-        default 22
-        help
-            AM2302 digital humidity and temperature sensor input.
+config GPIO_HUMIDITY
+    int "AM2302 digital humidity and temperature sensor input"
+    range 1 39
+    default 22
+    help
+        AM2302 digital humidity and temperature sensor input.
 
-    config GPIO_SOLAR_INCIDENCE
-        int "Photovoltaic plate"
-        range 1 39
-        default 35
-        help
-            Photovoltaic plate sensor input.
+config SOLAR_CELL_ADC_CHANNEL
+    int "ADC channel for the unit"
+    default 7
+    range 0 9
+    help 
+        ADC unit. From the enum: ADC_CHANNEL_0 = 0, ADC_CHANNEL_1 = 1, and so on ...
 
-    config RAIN_GAUGE_RATIO_COUNTS_PER_MM
-        int "Rain gauge ratio of counts to mm of precipitation (x1000)"
-        default 1000
-        help
-            Rain gauge ratio between measured counts and actual precipitation. Given by times (x1000).
+config RAIN_GAUGE_RATIO_COUNTS_PER_MM
+    int "Rain gauge ratio of counts to mm of precipitation (x1000)"
+    default 1000
+    help
+        Rain gauge ratio between measured counts and actual precipitation. Given by times (x1000).
 
 endmenu

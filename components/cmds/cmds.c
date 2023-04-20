@@ -5,6 +5,7 @@
 #include <esp_err.h>
 #include <esp_system.h>
 #include <esp_console.h>
+#include <driver/uart.h>
 #include <argtable3/argtable3.h>
 #include <esp_system.h>
 #include <esp_app_desc.h>
@@ -15,11 +16,161 @@
 #include "hexstring.h"
 #include "wifi.h"
 #include "cred.h"
-#include "strswitch.h"
+#include "vars.h"
 
 // ------------------------------------------------------------ Globals ---------------------------------------------------------
 
 bool logged = false;
+
+const char *login_err_msg = "Please login first before executing this priviledged command\n"; 
+
+// ------------------------------------------------------------ Var cmd ---------------------------------------------------------
+
+static struct{
+	struct arg_str *var;
+	struct arg_end *end;
+}cmd_var_args;
+
+// command
+int cmd_var(int argq, char** argv){
+	if(!logged){
+		printf(login_err_msg);
+		return 0;
+	}
+
+	int nerrors = arg_parse(argq, argv, (void**) &cmd_var_args);					// parse args
+	if (nerrors != 0) {
+        arg_print_errors(stderr, cmd_var_args.end, argv[0]);
+        return 0;
+    }
+
+	const var_t *var = varGet(cmd_var_args.var->sval[0]);							// get var
+
+	if(var != NULL){
+		varPrint(var);
+	}
+	else{
+		printf("The variable '%s' doesnt exists\n", cmd_var_args.var->sval[0]);
+	}
+
+	return 0;
+}
+
+static const esp_console_cmd_t cmd_var_cmd = {
+	.func = cmd_var,
+	.command = "var",
+	.help = "see a variable value",
+	.argtable = &cmd_var_args
+};
+
+// ------------------------------------------------------------ Set cmd ---------------------------------------------------------
+
+static struct{
+	struct arg_str *var;
+	struct arg_str *value;
+	struct arg_end *end;
+}cmd_set_args;
+
+int cmd_set(int argq, char** argv){
+	if(!logged){
+		printf(login_err_msg);
+		return 0;
+	}
+
+	int nerrors = arg_parse(argq, argv, (void**) &cmd_set_args);					// parse args
+	if (nerrors != 0) {
+        arg_print_errors(stderr, cmd_set_args.end, argv[0]);
+        return 0;
+    }
+
+	var_t *var = (var_t *)varGet(cmd_set_args.var->sval[0]);						// get var
+
+	if(var != NULL){
+		if(varSet(var, (char*)cmd_set_args.value->sval[0])){						// set
+			printf("Value was set!\n");
+			varPrint(var);
+		}
+		else{
+			printf("Error setting the var value. Check if the type is correct, if the var exists and if a value was passed!\n");
+			varPrint(var);
+		}
+	}
+	else{
+		printf("The variable '%s' doesnt exists\n", cmd_set_args.var->sval[0]);
+	}
+
+	return 0;
+}
+
+static const esp_console_cmd_t cmd_set_cmd = {
+	.func = cmd_set,
+	.command = "set",
+	.help = "set a variable value",
+	.argtable = &cmd_set_args
+};
+
+// ------------------------------------------------------------ Data cmd --------------------------------------------------------
+
+// data cmd callback
+int cmd_data(int argq, char **argv){
+	if(!logged){
+		printf(login_err_msg);
+		return 0;
+	}
+
+	printf("Sensor data (press any key to refresh. Press 'q' to exit):\n");
+
+	bool exec = true; 
+	while(exec){																	// infinite loop
+		printf(																		// print sensor data
+			"---------------------------\n"
+			"HG humidity        : % #.5g %%\n"
+			"HG temperature     : % #.5g C°\n"
+			"Solar incidency    : % #.5g W/m^2\n"
+			"Solar voltage      : % #.5g mV\n",
+			sensor_data.hg_humidity,
+			sensor_data.hg_temp,
+			sensor_data.solar_incidency,
+			sensor_data.solar_voltage
+		);
+	
+		fflush(stdin);
+		int key = fgetc(stdin);														// get key
+
+		switch(key){
+			case 'q':																// 'q' - exit
+				exec = false;
+				printf("\n");
+				continue;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+// esp conbsole struct
+static const esp_console_cmd_t cmd_data_cmd = {
+	.command = "data",
+	.help = "Stream sensor data",
+	.func = cmd_data,
+	.argtable = NULL
+};
+
+// ------------------------------------------------------------ clear cmd -------------------------------------------------------
+
+int cmd_clear(int argq, char ** argv){
+	printf("\033[2J");
+	printf("\033[1;1H");
+	return 0;
+}
+
+static const esp_console_cmd_t cmd_clear_cmd = {
+	.argtable = NULL,
+	.func = cmd_clear,
+	.command = "clear",
+	.help = "clear console screen"
+};
 
 // ------------------------------------------------------------ Wifi cmd --------------------------------------------------------
 
@@ -102,7 +253,7 @@ int cmd_wifi_info(int argq, char **argv){
 // main wifi commands callback
 int cmd_wifi(int argq, char **argv){
 	if(!logged){
-		printf("Please login first before executing this priviledged command\n");
+		printf(login_err_msg);
 		return 0;
 	}
 	
@@ -110,23 +261,18 @@ int cmd_wifi(int argq, char **argv){
 
 	if(subcommand == NULL) subcommand = "info";										// default subcommand
 
-	sswitch(subcommand){															// dispatch subcommand
-		scase("info")
-			return cmd_wifi_info(argq, argv);
-		sbreak
+	if(!strcmp(subcommand, "info"))
+		return cmd_wifi_info(argq, argv);
 
-		scase("connect")
-			return cmd_wifi_connect(argq, argv);
-		sbreak
-
-		scase("disconnect")
-			return cmd_wifi_disconnect(argq, argv);
-		sbreak
-
-		sdefault																	// invalid subcommand
-			printf("subcommand '%s' doesn't exist\n", subcommand);
-			return 0;
-		sbreak
+	else if(!strcmp(subcommand, "connect"))
+		return cmd_wifi_connect(argq, argv);
+		
+	else if(!strcmp(subcommand, "disconnect"))
+		return cmd_wifi_disconnect(argq, argv);
+		
+	else{																			// on invalid command
+		printf("subcommand '%s' doesn't exist\n", subcommand);
+		return 0;
 	}
 }
 
@@ -144,7 +290,7 @@ static const esp_console_cmd_t cmd_wifi_cmd = {
 // restart callback func
 int cmd_restart(int argq, char **argv){
 	if(!logged){
-		printf("Please login first before executing this priviledged command\n");
+		printf(login_err_msg);
 		return 0;
 	}
 
@@ -268,7 +414,7 @@ static const esp_console_cmd_t cmd_exit_cmd = {
 // info command callback
 int cmd_info(int argq, char **argv){
 	if(!logged){
-		printf("Please login first before executing this priviledged command\n");
+		printf(login_err_msg);
 		return 0;
 	}
 
@@ -290,6 +436,23 @@ static const esp_console_cmd_t cmd_info_cmd = {
 // register commands
 void cmds_register(void){
 	logged = false;
+	
+	// var cmd
+	cmd_var_args.var				= arg_str1(NULL, NULL, "<var name>", "The variable name to inspect");
+	cmd_var_args.end				= arg_end(10);
+	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_var_cmd));
+
+	// set cmd
+	cmd_set_args.var				= arg_str1(NULL, NULL, "<var name>", "The variable name to set");
+	cmd_set_args.value				= arg_str1(NULL, NULL, "<new value>", "The new value to be set");
+	cmd_set_args.end				= arg_end(10);
+	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_set_cmd));
+
+	// data cmd
+	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_data_cmd));
+
+	// clear cmd
+	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd_clear_cmd));
 	
 	// wifi command
 	cmd_wifi_args.subcommand    	= arg_str1(NULL, NULL, "<subcommand>", 	"wifi subcommands. Can be: info, disconnect, connect <ssid> [password] [timeout_ms]");

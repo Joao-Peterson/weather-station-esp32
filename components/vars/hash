@@ -1,0 +1,26 @@
+#!/bin/bash
+
+djb2_hash() {
+    local str="$1"
+    local hash=5381
+    local char
+	local c
+
+    for ((i=0; i<${#str}; i++)); do
+        char=${str:i:1}
+		c=$(printf "%d" "'$char'")
+        hash=$(( ($hash << 5) + $hash + $c ))
+		hash=$(($hash & 0x7FFFFFFF))												# necessary due to 32 bits overflows 
+    done
+
+    printf "%d" "$hash"
+}
+
+matches=$(grep -oE '\${[^}]+}' $1)
+cp $1 $2 
+
+for match in $matches; do
+    hash=$(echo -n $match | sed -n -r 's/\$\{([^}]+)\}/\1/p')
+    hash=$(djb2_hash $hash)
+    sed -i 's/'"$match"'/'"$hash"'/g' $2
+done

@@ -35,6 +35,7 @@ typedef union{
  * @brief struct for the treated data from the sensor after reading, hg_read() call
  */
 typedef struct{
+    int port;
     hg_packet_t raw;
     float humidity;
     float temperature;
@@ -48,11 +49,16 @@ typedef enum{
     hg_err_pointer_to_null              =  -2, 
     hg_err_fail_to_read_response_bits   =  -3, 
     hg_err_sensor_on_cooldown_time      =  -4, 
+    hg_err_checksum_failed              =  -5, 
     hg_err_ok                           =   0, 
-    hg_err_checksum_failed              =   1, 
 }hg_err_t; 
 
 // ------------------------------------------------------------ Functions ----------------------------------------------------------
+
+/**
+ * @brief initialize and create a new hg sensor
+ */
+hg_sensor_t hg_init(int port);
 
 /**
  * @brief return string for error given by the hg_err_t code
@@ -62,9 +68,9 @@ const char *hg_err_to_str(hg_err_t code);
 /**
  * @brief read data from sensor and return treated values
  * @param port: gpio port to read data from
- * @param sensor_data: allocatted struct to write data into
+ * @param sensor: allocatted struct to write data into
  * @return hg_err_t type error, use hg_err_str to get a string from the error
  */
-hg_err_t hg_read(gpio_num_t port, hg_sensor_t *sensor_data);
+hg_err_t hg_read(hg_sensor_t *sensor);
 
 #endif

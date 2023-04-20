@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdio.h>
@@ -10,19 +11,24 @@
 #include <esp_system.h>
 #include <esp_app_desc.h>
 #include <esp_console.h>
+#include <esp_timer.h>
 #include <linenoise/linenoise.h>
 #include <driver/uart.h>
 #include <driver/gpio.h>
 #include <esp_adc/adc_continuous.h>
 #include "cmds.h"
 #include "wifi.h"
-#include "hg_sensor.h"
-#include "rain_gauge.h"
 #include "queue.h"
+#include "vars.h"
+#include "hg_sensor.h"
+#include "solar_sensor.h"
+#include "rain_gauge.h"
 
 // ------------------------------------------------------------ Defines ------------------------------------------------------------
 
 #define PROMPT_STR CONFIG_IDF_TARGET
+
+// ------------------------------------------------------------ Globals ------------------------------------------------------------
 
 // ------------------------------------------------------------ Prototypes ---------------------------------------------------------
 
@@ -51,6 +57,9 @@ void app_main(void){
 
     // run console task
     xTaskCreate(console_task, "console_task", 4096, NULL, 0, NULL);
+
+    // sensor task
+    xTaskCreate(sensors_task, "sensors_task", 4096, NULL, 0, NULL);   
 }
 
 // ------------------------------------------------------------ Sensors task -------------------------------------------------------
@@ -58,43 +67,32 @@ void app_main(void){
 // main console task
 void sensors_task(void *data){
 
-    hg_sensor_t humidity_info;
-    rain_gauge_t rain_data;
-    uint8_t hall_sensor;
-    uint8_t hall_sensor_tmp;
+    // sensors init
+    // rain_gauge_t rain_data;
 
-    // gpio config
-    gpio_config_t adc0_gpio         = { .mode = GPIO_MODE_INPUT, .pin_bit_mask = (1ULL<<CONFIG_GPIO_TEMPERATURE) };
-    gpio_config_t hall_gpio         = { .mode = GPIO_MODE_INPUT, .pin_bit_mask = (1ULL<<CONFIG_GPIO_HALL_SENSOR) };
-    gpio_config_t hg_gpio           = { .intr_type = GPIO_INTR_ANYEDGE, .mode = GPIO_MODE_INPUT_OUTPUT_OD, .pin_bit_mask = (1ULL<<CONFIG_GPIO_HUMIDITY) };
-    gpio_config_t solar_incidence   = { .mode = GPIO_MODE_INPUT, .pin_bit_mask =  (1ULL<<CONFIG_GPIO_SOLAR_INCIDENCE) };
+    hg_sensor_t hg_sensor           = hg_init(CONFIG_GPIO_HUMIDITY);
+    solar_sensor_t solar_sensor     = solar_sensor_init(CONFIG_SOLAR_CELL_ADC_CHANNEL);
+    // gpio_config_t hall_gpio         = { .intr_type = GPIO_INTR_ANYEDGE, .mode = GPIO_MODE_INPUT, .pin_bit_mask = (1ULL<<CONFIG_GPIO_HALL_SENSOR) };
 
-    gpio_config(&adc0_gpio);
-    gpio_config(&hall_gpio);
-    gpio_config(&hg_gpio);
-    gpio_config(&solar_incidence);
+    // gpio_config(&adc0_gpio);
+    // gpio_config(&hall_gpio);
+    // gpio_config(&solar_incidence);
     
     gpio_install_isr_service(0);
 
-    // adc config 
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
-    adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
-
     // raingauge
-    rain_data.ratio_counts_per_mm = RAIN_GAUGE_RATIO_COUNTS_PER_MM; // rain gauge initialization information
-    rain_data.counts = 0;
-    rain_data.precipitation_inst = 0.0;
+    // rain_data.ratio_counts_per_mm = RAIN_GAUGE_RATIO_COUNTS_PER_MM; // rain gauge initialization information
+    // rain_data.counts = 0;
+    // rain_data.precipitation_inst = 0.0;
     // global_rain_data = &rain_data;
 
-    hall_sensor_tmp = gpio_get_level(CONFIG_GPIO_HALL_SENSOR);      // save hall state
+    // hall_sensor_tmp = gpio_get_level(CONFIG_GPIO_HALL_SENSOR);      // save hall state
     int64_t last_call = esp_timer_get_time();                       // get time for calling humidity sensor
 
     // task queues
-    queue_double_t *temp_queue = queue_new(50);
-    queue_double_t *solar_queue = queue_new(30);
+    // queue_double_t *temp_queue = queue_new(50);
+    // queue_double_t *solar_queue = queue_new(30);
 
-    
     // main loop
     while(1){
 
@@ -108,36 +106,42 @@ void sensors_task(void *data){
         
         /* Humidity */  
         if(esp_timer_get_time() - last_call > HG_SENSOR_COOLDOWN_TIME_US){
-            hg_err_t hg_code = hg_read(CONFIG_GPIO_HUMIDITY, &humidity_info);
+            hg_err_t hg_code = hg_read(&hg_sensor);
 
             // if error has occured
-            if(hg_code < 0){
+            if(hg_code){
                 ESP_LOGE(__FILE__, "%s", hg_err_to_str(hg_code));
-                // objeto.humidity = NaN_double.nan;
-                // objeto.temp     = NaN_double.nan;
+                sensor_data.hg_temp     = NAN;
+                sensor_data.hg_humidity = NAN;
             }
             else{
-                // ESP_LOGI(__FILE__, "Humidade: [%f]", humidity_info.humidity);
-                // objeto.humidity = humidity_info.humidity;
-                // objeto.temp     = humidity_info.temperature;
+                sensor_data.hg_temp     = hg_sensor.temperature;
+                sensor_data.hg_humidity = hg_sensor.humidity;
             }
             
             last_call = esp_timer_get_time();
         }
 
         /* Solar incidence */
-        // objeto.incidency_sun = NaN_double.nan;
-        uint16_t solar_incidence_raw = adc1_get_raw(ADC1_CHANNEL_7);
-        queue_add(solar_queue, solar_incidence_raw);
-        // objeto.incidency_sun = queue_average(solar_queue);
+        solar_err_t solar_code = solar_sensor_read(&solar_sensor);
+
+        if(solar_code){
+            ESP_LOGE(__FILE__, "%s", solar_err_to_str(solar_code));
+            sensor_data.solar_incidency = NAN;
+            sensor_data.solar_voltage = NAN;
+        }
+        else{
+            sensor_data.solar_incidency = solar_sensor.incidency;
+            sensor_data.solar_voltage = solar_sensor.voltage;
+        }
 
         /* Rain gauge */
-        hall_sensor = gpio_get_level(CONFIG_GPIO_HALL_SENSOR);
-        if(hall_sensor == 0 && hall_sensor_tmp == 1){       // falling edge detection
-            rain_data.counts++;
-            // objeto.precipitation = rain_data.counts;
-        }
-        hall_sensor_tmp = hall_sensor;
+        // hall_sensor = gpio_get_level(CONFIG_GPIO_HALL_SENSOR);
+        // if(hall_sensor == 0 && hall_sensor_tmp == 1){       // falling edge detection
+        //     rain_data.counts++;
+        //     // objeto.precipitation = rain_data.counts;
+        // }
+        // hall_sensor_tmp = hall_sensor;
     }    
 }
 

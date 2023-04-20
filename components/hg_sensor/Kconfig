@@ -1,3 +1,5 @@
+menu "HG sensor config (DHT22/AM2302)"
+
 config HUMIDITY_READ_COOLDOWN_MS
 	int "Humidity cooldown between calls of hg_read() in milliseconds"
 	default 1000
@@ -5,3 +7,4 @@ config HUMIDITY_READ_COOLDOWN_MS
 	help 
 		AM2302 digital humidity and temperature sensor cooldown between calls of hg_read() in milliseconds, if exceeded, call will return if code 'hg_err_sensor_on_cooldown_time'
 
+endmenu
