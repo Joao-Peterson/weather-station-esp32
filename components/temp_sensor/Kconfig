@@ -16,7 +16,7 @@ config TEMP_ADC_ATTEN
 
 config TEMP_CORR_A
 	int "Temperature correction angular coefficient"
-	default 100000000
+	default 100000
 	help 
 		Angular coefficient for the linear correction of the read temperature. Given as 10^6.
 		

@@ -1,4 +1,5 @@
 #include "cmds.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <esp_log.h>
@@ -129,18 +130,26 @@ int cmd_data(int argq, char **argv){
 	while(exec){																	// infinite loop
 		printf(																		// print sensor data
 			"---------------------------\n"
-			"HG humidity        : % #.5g %%\n"
-			"HG temperature     : % #.5g C°\n"
-			"Solar incidency    : % #.5g W/m^2\n"
-			"Solar voltage      : % #.5g mV\n"
-			"LM35 temperature   : % #.5g C°\n"
-			"LM35 voltage       : % #.5g mV\n",
+			"HG humidity            : % #.5g %%\n"
+			"HG temperature         : % #.5g C°\n"
+			"Solar incidency        : % #.5g W/m^2\n"
+			"Solar voltage          : % #.5g mV\n"
+			"LM35 temperature       : % #.5g C°\n"
+			"LM35 voltage           : % #.5g mV\n"
+			"Precipitation (inst)   : % #.5g mm\n"
+			"Precipitation (min)    : % #.5g mm/min\n"
+			"Precipitation (hour)   : % #.5g mm/h\n"
+			"Precipitation (day)    : % #.5g mm/d\n",
 			sensor_data.hg_humidity,
 			sensor_data.hg_temp,
 			sensor_data.solar_incidency,
 			sensor_data.solar_voltage,
 			sensor_data.temp_temperature,
-			sensor_data.temp_voltage
+			sensor_data.temp_voltage,
+			sensor_data.precipitation_inst,
+			sensor_data.precipitation_mm_min,
+			sensor_data.precipitation_mm_hour,
+			sensor_data.precipitation_mm_day
 		);
 	
 		fflush(stdin);

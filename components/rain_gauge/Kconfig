@@ -1,0 +1,9 @@
+menu "Rain gauge sensor"
+
+config RAIN_GAUGE_RATIO    
+	int "Ratio of counts to mm of precipitation"
+	default 1000000
+	help
+		Rain gauge ratio between measured counts and actual precipitation. Given as 10^6.
+
+endmenu

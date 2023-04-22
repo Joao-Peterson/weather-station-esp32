@@ -14,6 +14,10 @@ typedef struct{
     float solar_voltage;
     float temp_temperature;
     float temp_voltage;
+    float precipitation_inst;
+    float precipitation_mm_min;
+    float precipitation_mm_hour;
+    float precipitation_mm_day;
 }sensor_data_t;
 extern sensor_data_t sensor_data;
 

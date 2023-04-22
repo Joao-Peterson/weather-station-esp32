@@ -25,6 +25,7 @@ var_t vars[] = {
 	{.name = "solar_b", .hash = ${solar_b}, .type = var_float, .value.asFloat = CONFIG_SOLAR_CELL_ADC_INCIDENCY_B 	/ 1000000.0},
 	{.name = "temp_a", 	.hash = ${temp_a}, 	.type = var_float, .value.asFloat = CONFIG_TEMP_CORR_A 					/ 1000000.0},
 	{.name = "temp_b", 	.hash = ${temp_b}, 	.type = var_float, .value.asFloat = CONFIG_TEMP_CORR_B 					/ 1000000.0},
+	{.name = "rain_r", 	.hash = ${rain_r}, 	.type = var_float, .value.asFloat = CONFIG_RAIN_GAUGE_RATIO 			/ 1000000.0},
 };
 
 // get
