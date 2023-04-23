@@ -129,7 +129,7 @@ int cmd_data(int argq, char **argv){
 	bool exec = true; 
 	while(exec){																	// infinite loop
 		printf(																		// print sensor data
-			"---------------------------\n"
+			"-------------------------------------------\n"
 			"HG humidity            : % #.5g %%\n"
 			"HG temperature         : % #.5g C°\n"
 			"Solar incidency        : % #.5g W/m^2\n"

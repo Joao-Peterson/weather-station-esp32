@@ -147,12 +147,16 @@ void sensors_task(void *data){
 
         if(rain_gauge_code){
             ESP_LOGE(__FILE__, "%s", rain_gauge_err_to_str(rain_gauge_code));
-            sensor_data.temp_temperature = NAN;
-            sensor_data.temp_voltage = NAN;
+            sensor_data.precipitation_inst      = NAN;
+            sensor_data.precipitation_mm_min    = NAN;
+            sensor_data.precipitation_mm_hour   = NAN;
+            sensor_data.precipitation_mm_day    = NAN;
         }
         else{
-            sensor_data.temp_temperature = temp_sensor.temperature;
-            sensor_data.temp_voltage = temp_sensor.voltage;
+            sensor_data.precipitation_inst      = rain_gauge.precipitation_inst;
+            sensor_data.precipitation_mm_min    = rain_gauge.precipitation_mm_min;
+            sensor_data.precipitation_mm_hour   = rain_gauge.precipitation_mm_hour;
+            sensor_data.precipitation_mm_day    = rain_gauge.precipitation_mm_day;
         }
     }    
 }
