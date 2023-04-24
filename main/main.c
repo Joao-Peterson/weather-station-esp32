@@ -16,6 +16,7 @@
 #include <driver/uart.h>
 #include <driver/gpio.h>
 #include <esp_adc/adc_continuous.h>
+#include "cred.h"
 #include "cmds.h"
 #include "wifi.h"
 #include "queue.h"
@@ -24,6 +25,7 @@
 #include "solar_sensor.h"
 #include "temp_sensor.h"
 #include "rain_gauge.h"
+#include "mymqtt.h"
 
 // ------------------------------------------------------------ Defines ------------------------------------------------------------
 
@@ -35,6 +37,9 @@
 
 // console_init
 void console_init(void);
+
+// state task 
+void state_task(void *data);
 
 // main console task
 void console_task(void *data);
@@ -53,17 +58,46 @@ void app_main(void){
     }
     ESP_ERROR_CHECK(err);
 
-    // initialize wifi
-    wifi_init();
+    // run state task
+    xTaskCreate(state_task, "state_task", 4096, NULL, 0, NULL);
 
     // run console task
     xTaskCreate(console_task, "console_task", 4096, NULL, 0, NULL);
 
     // sensor task
     xTaskCreate(sensors_task, "sensors_task", 4096, NULL, 0, NULL);   
+
 }
 
 // ------------------------------------------------------------ Sensors task -------------------------------------------------------
+// state task 
+void state_task(void *data){
+
+    // initialize wifi
+    wifi_init();
+    
+    // wait wifi connection
+    EventBits_t eg = xEventGroupWaitBits(network_event_group, network_eg_wifi_connected, pdFALSE, pdTRUE, portMAX_DELAY);
+
+    // mqtt client
+    mqtt_init("mqtts://192.168.1.10:8883", "station", "esp32");
+
+    // wait mqtt connection  
+    eg = xEventGroupWaitBits(network_event_group, network_eg_mqtt_connected, pdFALSE, pdTRUE, portMAX_DELAY);
+
+    while(1){
+        eg = xEventGroupWaitBits(network_event_group, network_eg_all, pdFALSE, pdTRUE, pdMS_TO_TICKS(5000));
+
+        if(!(eg & network_eg_wifi_connected)){                                      // check for wifi
+            ESP_LOGW(__FILE__, "No wifi connection available. Timeout reached (5000ms). Wait for reconnection or set the wifi network manually");
+            continue;
+        }
+
+        if(!(eg & network_eg_mqtt_connected)){                                      // if no mqtt connection
+            ESP_LOGW(__FILE__, "No mqtt connection available");
+        }
+    }
+}
 
 // main console task
 void sensors_task(void *data){
@@ -88,18 +122,24 @@ void sensors_task(void *data){
     temp_sensor_t temp_sensor       = temp_sensor_init(CONFIG_TEMP_SENSOR_ADC_CHANNEL, unit_id, adc_unit0_handle);
     rain_gauge_t rain_gauge         = rain_gauge_init(CONFIG_GPIO_RAIN_GAUGE);    
 
-    // hall_sensor_tmp = gpio_get_level(CONFIG_GPIO_HALL_SENSOR);      // save hall state
-    int64_t last_call = esp_timer_get_time();                       // get time for calling humidity sensor
+    int64_t hg_last_call            = esp_timer_get_time();                         // get time for calling humidity sensor
+    int64_t mqtt_last_publish       = esp_timer_get_time();                         // get time for publishing data to mqtt
 
-    // task queues
+    // sensor queues for mean values
     // queue_double_t *temp_queue = queue_new(50);
     // queue_double_t *solar_queue = queue_new(30);
+
+    // mqtt publish topic name
+    credentials_t *cred = credentials_get_nvs();									// get serial
+
+	char hostname[33] = {0};
+	snprintf((char*)hostname, 32, CONFIG_HOSTNAME, cred->serial);					// hostname
 
     // main loop
     while(1){
 
         /* Humidity */  
-        if(esp_timer_get_time() - last_call > HG_SENSOR_COOLDOWN_TIME_US){
+        if(esp_timer_get_time() - hg_last_call > HG_SENSOR_COOLDOWN_TIME_US){
             hg_err_t hg_code = hg_read(&hg_sensor);
 
             // if error has occured
@@ -113,7 +153,7 @@ void sensors_task(void *data){
                 sensor_data.hg_humidity = hg_sensor.humidity;
             }
             
-            last_call = esp_timer_get_time();
+            hg_last_call = esp_timer_get_time();
         }
 
         /* Solar incidence */
@@ -157,6 +197,40 @@ void sensors_task(void *data){
             sensor_data.precipitation_mm_min    = rain_gauge.precipitation_mm_min;
             sensor_data.precipitation_mm_hour   = rain_gauge.precipitation_mm_hour;
             sensor_data.precipitation_mm_day    = rain_gauge.precipitation_mm_day;
+        }
+
+        /* mqtt publish */
+        EventBits_t eg = xEventGroupGetBits(network_event_group);
+        if(
+            (eg & network_eg_wifi_connected) &&
+            (eg & network_eg_mqtt_connected) &&
+            (esp_timer_get_time() - mqtt_last_publish > (1000 * 1000))
+        ){
+            char topic[70] = {0};
+            char *topic_fmt = "stations/%s/%s";
+            
+            snprintf(topic, 69, topic_fmt, hostname, "hg_humidity");
+            mqtt_send_float(sensor_data.hg_humidity, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "hg_temp");
+            mqtt_send_float(sensor_data.hg_temp, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "solar_incidency");
+            mqtt_send_float(sensor_data.solar_incidency, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "solar_voltage");
+            mqtt_send_float(sensor_data.solar_voltage, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "temp_temperature");
+            mqtt_send_float(sensor_data.temp_temperature, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "temp_voltage");
+            mqtt_send_float(sensor_data.temp_voltage, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "precipitation_inst");
+            mqtt_send_float(sensor_data.precipitation_inst, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "precipitation_mm_min");
+            mqtt_send_float(sensor_data.precipitation_mm_min, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "precipitation_mm_hour");
+            mqtt_send_float(sensor_data.precipitation_mm_hour, topic);
+            snprintf(topic, 69, topic_fmt, hostname, "precipitation_mm_day");
+            mqtt_send_float(sensor_data.precipitation_mm_day, topic);
+
+            mqtt_last_publish =  esp_timer_get_time();
         }
     }    
 }

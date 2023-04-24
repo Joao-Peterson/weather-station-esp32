@@ -21,7 +21,7 @@
 // ------------------------------------------------------------ Globals ------------------------------------------------------------
 
 // global wifi event group
-EventGroupHandle_t wifi_event_group;
+EventGroupHandle_t network_event_group;
 
 // global wifi sta interface
 esp_netif_t *netif_sta = NULL; 
@@ -156,7 +156,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 			// case WIFI_EVENT_STA_CONNECTED:											// after wifi start
 				esp_err_t res = esp_wifi_connect();									// try to reconnect
 				ESP_LOGD("wifi", "[DEBUG] [%s.%i] (%s) esp_wifi_connect: %s \n", __FILE__, __LINE__, __CC_SUPPORTS___FUNC__ ? __func__ : "some_function", esp_err_to_name(res));
-				xEventGroupClearBits(wifi_event_group, wifi_eg_connected);
+				xEventGroupClearBits(network_event_group, network_eg_wifi_connected);
 			break;
 		}
 	}
@@ -164,7 +164,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
 		switch(event_id){
 			case IP_EVENT_STA_GOT_IP:												// on got ipv4
-				xEventGroupSetBits(wifi_event_group, wifi_eg_connected);
+				xEventGroupSetBits(network_event_group, network_eg_wifi_connected);
 			break;
 		}
 	}
@@ -176,8 +176,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 void wifi_init(){
     esp_log_level_set("wifi", ESP_LOG_WARN);										// internal esp wifi logs to warning, too much info
 
-    wifi_event_group = xEventGroupCreate();											// create event group
-	xEventGroupClearBits(wifi_event_group, wifi_eg_connected);
+    network_event_group = xEventGroupCreate();											// create event group
+	xEventGroupClearBits(network_event_group, network_eg_wifi_connected);
 
     ESP_ERROR_CHECK(esp_netif_init());												// initialize net interface
     ESP_ERROR_CHECK(esp_event_loop_create_default());								// default esp event loop
@@ -212,8 +212,8 @@ void wifi_init(){
 
 // get connected status
 bool wifi_connected(){
-	int wifi_group = xEventGroupGetBits(wifi_event_group);							// get wifi group
-	return !!(wifi_group & wifi_eg_connected);										// return the connected bit
+	int wifi_group = xEventGroupGetBits(network_event_group);							// get wifi group
+	return !!(wifi_group & network_eg_wifi_connected);										// return the connected bit
 }
 
 // disconnect
@@ -255,13 +255,13 @@ wifi_connect_status_t wifi_connect_to(char *ssid, char *pass, size_t timeoutMs){
 	}
 
 	int wifi_group = xEventGroupWaitBits(											// wait for connection
-		wifi_event_group, 
-		wifi_eg_connected,
+		network_event_group, 
+		network_eg_wifi_connected,
 		pdFALSE, pdTRUE,
 		timeoutMs / portTICK_PERIOD_MS
 	);
 
-	if(wifi_group & wifi_eg_connected){												// if bit connected
+	if(wifi_group & network_eg_wifi_connected){												// if bit connected
 		return wifi_connect_status_connected;
 	}
 	else{																			// else,r eturned by timeout
@@ -300,9 +300,9 @@ wifi_info_t wifi_get_info(){
 	}
 
 
-	int wifi_group = xEventGroupGetBits(wifi_event_group);							// get event bits
+	int wifi_group = xEventGroupGetBits(network_event_group);							// get event bits
 	
-	info.connected = (bool)(wifi_group & wifi_eg_connected);						// connected
+	info.connected = (bool)(wifi_group & network_eg_wifi_connected);						// connected
 	strncpy(info.ssid, (char *)ap.ssid, 32);										// ssid
 	info.rssi = ap.rssi;															// rssi
 	snprintf(info.ip, 16, IPSTR, IP2STR(&(netifInfo.ip)));							// ip

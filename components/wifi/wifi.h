@@ -9,19 +9,17 @@
 #include <freertos/event_groups.h>
 #include <esp_event_base.h>
 
-// ------------------------------------------------------------ Defines -----------------------------------------------------------
-
-#define add 
-
 // ------------------------------------------------------------ Event group -------------------------------------------------------
 
 // event group for wifi events/flags
-extern EventGroupHandle_t wifi_event_group;
+extern EventGroupHandle_t network_event_group;
 
-// enum for the event bits on the wifi_event_group group
+// enum for the event bits on the network_event_group group
 typedef enum{
-	wifi_eg_connected =			0x01,
-}wifi_eg_t;
+	network_eg_wifi_connected 	= 0x01,
+	network_eg_mqtt_connected 	= 0x02,
+	network_eg_all 				= 0x03,
+}network_eg_t;
 
 // ------------------------------------------------------------ Types -------------------------------------------------------------
 

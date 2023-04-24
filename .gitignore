@@ -4,6 +4,8 @@ build/
 
 # extensions
 *.bin
+*.crt
+*.pem
 
 # individual files
 nvs.csv

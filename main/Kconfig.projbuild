@@ -6,6 +6,12 @@ config HOSTNAME
     help
         Hostname for the esp. The %s is where the serial number will be inserted (maybe truncated)
 
+config MQTT_PUBLISH_INTERVAL
+    int "Interval to publish to mqtt server (ms)"
+    default 5000
+    help
+        Interval to publish to mqtt server (ms)
+
 config GPIO_RAIN_GAUGE
     int "Rain gauge digital input"
     range 1 39
